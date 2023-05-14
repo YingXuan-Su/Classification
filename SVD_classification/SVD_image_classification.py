@@ -2,7 +2,6 @@
 Reference : https://web.cs.ucdavis.edu/~bai/ECS130/References/EldenChap10.pdf
 '''
 import h5py 
-from functools import reduce
 import numpy as np
 import cv2
 import pandas as pd
@@ -10,50 +9,58 @@ import pandas as pd
 def main():
 
     train_features, train_labels, test_features, test_labels = getUspDataSet(r'Mean_classification\usps.h5')
-    print(f'Train Dataset 有 {train_features.shape[0]} 張')
-    print(f'Test Dataset 有 {test_features.shape[0]} 張')
-
-    #train_features = np.array([train_features[i].reshape(16,16) for i in range(train_features.shape[0])])
-    #train_features = np.array([test_features[i].reshape(16,16) for i in range(test_features.shape[0])])
+    print(f'There are {train_features.shape[0]} images in train dataset.')
+    print(f'There are {test_features.shape[0]} images in test dataset.')
 
     train_data = {}
     for i in range(len(list(set(train_labels)))):
         idx = np.argwhere(train_labels==i)
-        train_data[i] = train_features[idx].squeeze().transpose()
-        #print(f'{i}有{train_data[i].shape[1]}張')
+        train_data[i] = train_features[idx].squeeze().transpose()  # (number of images, 1,256)-> (1,256) -> (256,1)
+        # print(f'There are {train_data[i].shape[1]} images in class number {i}.')
 
-    #show_one_image(train_data[1][:,0].reshape(16,16))  # make sure the image
+    # show_one_image(train_data[3][:,0].reshape(16,16))  # make sure the image.
 
+    # Perform SVD on all images of all categories in the training dataset to get the matrix U (left singular matrix).
     U_list = []
     for i in range(len(train_data)):
         U, _, _ = np.linalg.svd(train_data[i])
         U_list.append(U)
 
-    index=list(range(10))
+    index = list(range(10))
     index.append('Total Acc')
-    acc_df = pd.DataFrame({}, index=index)
-    for k in range(1, 21):   
+    df = pd.DataFrame({}, index=index)
+
+    for k in range(1, 21):   # run all k (the number of eigenvalue used).
+
+        # predict all images in test dataset.
         pred_list = []
         for i in range(len(test_features)):
             pred_list.append( predict(U_list, test_features[i], k) )
     
+        # calculate the accurancy of all categories(number 0~9).
         acc_list = []
         for i in range(10):
             idx = np.argwhere(test_labels==i)
             num_correct = sum([test_labels[i[0]]==pred_list[i[0]] for i in idx])
             acc_list.append(num_correct/len(idx))
 
+        # calculate the accurancy of the entire test dataset.
         num_correct = sum([i==j for (i,j) in zip(test_labels, pred_list)])
-        print(f'{k} : {num_correct}/{len(test_labels)}')
+        print('k={}, Accuracy = {:.3f}%'.format(k, num_correct/len(test_labels)*100))
         acc_list.append(num_correct/len(test_labels))
         
-        acc_df[k] = np.around(acc_list, decimals=3)
+        df[k] = acc_list
     
-    best_k = acc_df.idxmax(axis=1)['Total Acc']
+    # Obtain the value of k for which the accuracy is highest.
+    best_k = df.idxmax(axis=1)['Total Acc']
     print(f'the best k is {best_k}')
-    fig = acc_df[best_k].plot.line()
-    fig.figure.savefig('performance.png')
-    acc_df.to_csv('SVD_performance.csv')
+
+    fig = df[best_k].plot.line()
+    fig.figure.savefig('SVD_classification\SVD_performance.png')
+
+    # convert the numbers in a dataframe to percentages and specify the number of decimal.
+    df = df.applymap(lambda x: ("{:.3f}%".format(x * 100)))
+    df.to_csv('SVD_classification\SVD_performance.csv')
 
     
 

@@ -2,46 +2,61 @@ import h5py
 from functools import reduce
 import numpy as np
 import cv2
+import pandas as pd
 
 def main():
+    
     train_features, train_labels, test_features, test_labels = getUspDataSet(r'Mean_classification\usps.h5')
-    print(f'train_feature 有 {train_features.shape[0]} 張')
-    print(f'test_feature 有 {test_features.shape[0]} 張')
+    print(f'There are {train_features.shape[0]} images in train dataset.')
+    print(f'There are {test_features.shape[0]} images in test dataset.')
 
     # reshape to (16,16)
     train_features = np.array([np.array(train_features[i]).reshape(16,16) for i in range(len(train_features))])
     test_features = np.array([np.array(test_features[i]).reshape(16,16) for i in range(len(test_features))])
-    print(f'每一張的shape為{train_features[0].shape}')
+    print(f'The shape of each images is {train_features[0].shape}.')
 
-    label_type = list(set(train_labels))
-
-    # mean_train = train_features.mean(0)
-    # show_one_img(mean_train)
-
-    means = get_mean(features=train_features, labels=train_labels)
+    # Calculate the mean of all images of all categories in the training dataset.
+    means = get_mean(features=train_features, labels=train_labels)  # (num_class, 16, 16)
     
-    show_one_img(means.reshape((-1, 16)))
-    show_one_img(means[0])
-    # print(pred_by_mean(means, test_features[0]))
-    # show_one_img(test_features[0])
+    # show_one_img(means.reshape((-1, 16)))  # horizontal arrangement.
 
+    # vertical arrangement.
+    vert_mean = means[0,:,:]
+    for i in range(1, means.shape[0]):  
+        vert_mean = np.concatenate((vert_mean, means[i,:,:]), axis=1)
+    cv2.imwrite('Mean_classification\mean_image.jpg', 255*vert_mean)  # need to *255
+    # show_one_img(vert_mean)  # to chack the mean calculation is true
+
+    # predict all images in test dataset.
     pred_list = []
     for i in range(len(test_features)):
         pred_list.append(pred_by_mean(means, test_features[i]))
 
+    # calculate the accurancy of all categories(number 0~9).
     acc_list = []
     for i in range(10):
         idx = np.argwhere(test_labels==i)
         num_correct = sum([test_labels[i[0]]==pred_list[i[0]] for i in idx])
         acc_list.append(num_correct/len(idx))
 
+    # calculate the accurancy of the entire test dataset.
     num_correct = sum([i==j for (i,j) in zip(test_labels, pred_list)])
-    print(f'Accuracy = {num_correct/len(test_labels)}')
+    # print('Accuracy = {:.3f}%'.format(num_correct/len(test_labels)*100))
     acc_list.append(num_correct/len(test_labels))
     
     for i in range(len(acc_list)-1):
-        print(f'Acc of Number {i} : {acc_list[i]}')
-    print(f'Total Acc : {acc_list[-1]}')
+        print('Acc of Number {} : {:.3f}%'.format(i, acc_list[i]*100 ))
+    print('Total Acc : {:.3f}%'.format(acc_list[-1]*100 ))
+
+    idx = list(range(10))
+    idx.append('Total Acc')
+    df = pd.DataFrame([acc_list], columns = idx, index=['Accurancy'])
+
+    # convert the numbers in a dataframe to percentages and specify the number of decimal.
+    df = df.applymap(lambda x: ("{:.3f}%".format(x * 100)))
+
+    df.to_csv('Mean_classification\mean_performance.csv')
+
 
 # https://www.kaggle.com/datasets/bistaumanga/usps-dataset
 def getUspDataSet(path):
@@ -53,7 +68,6 @@ def getUspDataSet(path):
         x_Test = test.get("data")[:]
         y_Test = test.get("target")[:]
     return x_Train, y_Train, x_Test, y_Test
-
 
 def show_one_img(data):
     cv2.imshow('img', data)

@@ -1,0 +1,6 @@
+,name,accuracy,recall,precision,f1_score
+0,Random Forest,94.0%,94.0%,94.0%,94.0%
+1,Support Vector Machine,94.7%,94.7%,94.7%,94.7%
+2,KNN,94.5%,94.5%,94.5%,94.5%
+3,Decision Tree,82.6%,82.6%,82.6%,82.6%
+4,Naive Bayes,71.9%,71.9%,71.9%,71.9%
